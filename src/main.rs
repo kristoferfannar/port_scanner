@@ -15,8 +15,13 @@ fn main() {
         .read_line(&mut port)
         .expect("failed to read port from stdin");
 
-    let mut address = String::new();
+    if port_is_open(host.as_str(), port.as_str()) {
+        println!("{}:{} is open", host, port)
+    }
+}
 
+fn port_is_open(host: &str, port: &str) -> bool {
+    let mut address = String::new();
     address.push_str(&host.trim());
     address.push(':');
     address.push_str(&port.trim());
@@ -25,7 +30,5 @@ fn main() {
 
     let result = TcpStream::connect(address);
 
-    if result.is_ok() {
-        println!("Success on port 80")
-    }
+    return result.is_ok();
 }
