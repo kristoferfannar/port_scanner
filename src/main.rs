@@ -8,10 +8,21 @@ use threadpool::ThreadPool;
 fn main() {
     let host = input("host: ");
     let port = input("port: ");
-
     let port_list = get_ports(port.as_str());
 
     let start = Instant::now(); // Start timer
+    let open_ports = find_open_ports(host.as_str(), port_list);
+    let duration = start.elapsed(); // End timer
+
+    for p in open_ports {
+        println!("Open port: {}", p);
+    }
+
+    println!("scan finished in {:?}", duration)
+}
+
+fn find_open_ports(ip: &str, ports: Vec<i32>) -> Vec<i32> {
+    let mut open_ports: Vec<i32> = Vec::new();
 
     // create a channel for adding ports in a vector on the main thread
     // connector threads will add ports to the channel if they are open
@@ -22,11 +33,11 @@ fn main() {
     let pool_size = 100;
     let pool = ThreadPool::new(pool_size);
 
-    for p in port_list {
+    for p in ports {
         pool.execute({
-            // make "host" accessible from within the thread,
-            // without worrying about its external lifetime
-            let host = host.clone();
+            // hmm I'm not sure what to do here,
+            // whether to use String or &str
+            let host = ip.to_string();
             let sender = sender.clone();
             move || {
                 if port_is_open(host.as_str(), p.to_string().as_str()) {
@@ -37,24 +48,18 @@ fn main() {
         });
     }
 
+    // run the threads, *pool_size* at a time
     pool.join();
-
-    let duration = start.elapsed(); // End timer
 
     // close the channel...
     drop(sender);
 
-    let mut open_ports: Vec<i32> = Vec::new();
-    // ...and print all received ports
+    // ...and push the received ports into a vector
     for p in receiver {
         open_ports.push(p);
     }
 
-    for p in open_ports {
-        println!("Open port: {}", p);
-    }
-
-    println!("scan finished in {:?}", duration)
+    return open_ports;
 }
 
 fn get_ports(port_prompt: &str) -> Vec<i32> {
