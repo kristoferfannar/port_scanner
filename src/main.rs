@@ -15,7 +15,7 @@ fn main() {
 
     // create a channel for adding ports in a vector on the main thread
     // connector threads will add ports to the channel if they are open
-    let (sender, receiver) = channel::<String>();
+    let (sender, receiver) = channel::<i32>();
 
     // create a threadpool to limit the
     // upper bound of concurrent threads
@@ -29,9 +29,7 @@ fn main() {
             let host = host.clone();
             let sender = sender.clone();
             move || {
-                if port_is_open(host.as_str(), p.as_str()) {
-                    println!("{}:{} is open", host, p);
-
+                if port_is_open(host.as_str(), p.to_string().as_str()) {
                     // send the port on the channel
                     sender.send(p).unwrap();
                 }
@@ -46,18 +44,21 @@ fn main() {
     // close the channel...
     drop(sender);
 
+    let mut open_ports: Vec<i32> = Vec::new();
     // ...and print all received ports
     for p in receiver {
-        println!("port: {}", p);
+        open_ports.push(p);
+    }
+
+    for p in open_ports {
+        println!("Open port: {}", p);
     }
 
     println!("scan finished in {:?}", duration)
 }
 
-fn get_ports(port_prompt: &str) -> Vec<String> {
-    // return a Vec<String> so that the
-    // vector can outlive the input parameter
-    let mut port_list: Vec<String> = Vec::new();
+fn get_ports(port_prompt: &str) -> Vec<i32> {
+    let mut port_list: Vec<i32> = Vec::new();
 
     if port_prompt.contains('-') {
         let ports = port_prompt.splitn(2, '-').collect::<Vec<&str>>();
@@ -70,13 +71,13 @@ fn get_ports(port_prompt: &str) -> Vec<String> {
         let end = ports[1].parse::<i32>().unwrap();
 
         for p in start..end {
-            let p_str = p.to_string();
-            port_list.push(p_str);
+            port_list.push(p);
         }
         // include the final port
-        port_list.push(ports[1].to_string());
+        port_list.push(end);
     } else {
-        port_list.push(port_prompt.to_string());
+        let port = port_prompt.parse::<i32>().unwrap();
+        port_list.push(port);
     }
 
     return port_list;
