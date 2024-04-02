@@ -1,16 +1,45 @@
 use std::io::{self, ErrorKind, Write};
 use std::net::TcpStream;
 use std::net::ToSocketAddrs;
+use std::thread;
 use std::time::Duration;
 
 fn main() {
     let host = input("host: ");
     let port = input("port: ");
 
-    let mut port_list = Vec::new();
+    let port_list = get_ports(port.as_str());
 
-    if port.contains('-') {
-        let ports = port.as_str().splitn(2, '-').collect::<Vec<&str>>();
+    // will act as our waitgroup
+    let mut handles = vec![];
+
+    for p in port_list {
+        let handle = thread::spawn({
+            // make "host" accessible from within the thread,
+            // without worrying about its external lifetime
+            let host = host.clone();
+            move || {
+                if port_is_open(host.as_str(), p.as_str()) {
+                    println!("{}:{} is open", host, p)
+                }
+            }
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+    println!("scan finished")
+}
+
+fn get_ports(port_prompt: &str) -> Vec<String> {
+    // return a Vec<String> so that the
+    // vector can outlive the input parameter
+    let mut port_list: Vec<String> = Vec::new();
+
+    if port_prompt.contains('-') {
+        let ports = port_prompt.splitn(2, '-').collect::<Vec<&str>>();
         if ports.last().unwrap().contains('-') {
             eprintln!("invalid port range. Max one hyphen allowed");
             panic!("exiting due to invalid port range");
@@ -23,16 +52,13 @@ fn main() {
             let p_str = p.to_string();
             port_list.push(p_str);
         }
-        port_list.push(end.to_string());
+        // include the final port
+        port_list.push(ports[1].to_string());
     } else {
-        port_list.push(port);
+        port_list.push(port_prompt.to_string());
     }
 
-    for port in port_list {
-        if port_is_open(host.as_str(), port.as_str()) {
-            println!("{}:{} is open", host, port)
-        }
-    }
+    return port_list;
 }
 
 fn input(prompt: &str) -> String {
