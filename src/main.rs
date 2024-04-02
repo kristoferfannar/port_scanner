@@ -2,7 +2,7 @@ use std::io::{self, ErrorKind, Write};
 use std::net::TcpStream;
 use std::net::ToSocketAddrs;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn main() {
     let host = input("host: ");
@@ -12,6 +12,8 @@ fn main() {
 
     // will act as our waitgroup
     let mut handles = vec![];
+
+    let start = Instant::now(); // Start timer
 
     for p in port_list {
         let handle = thread::spawn({
@@ -30,7 +32,10 @@ fn main() {
     for handle in handles {
         handle.join().unwrap();
     }
-    println!("scan finished")
+
+    let duration = start.elapsed(); // End timer
+
+    println!("scan finished in {:?}", duration)
 }
 
 fn get_ports(port_prompt: &str) -> Vec<String> {
@@ -80,12 +85,8 @@ fn port_is_open(host: &str, port: &str) -> bool {
     address.push(':');
     address.push_str(&port.trim());
 
-    // println!("scanning {}...", address);
-
     let mut socket_addresses = format!("{}:{}", host, port).to_socket_addrs().unwrap();
     let socket_address = socket_addresses.next().unwrap();
-
-    // println!("{}", socket_address.to_string());
 
     let result = TcpStream::connect_timeout(&socket_address, Duration::from_secs(1));
 
