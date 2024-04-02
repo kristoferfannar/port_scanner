@@ -1,6 +1,7 @@
 use std::io::{self, ErrorKind, Write};
 use std::net::TcpStream;
 use std::net::ToSocketAddrs;
+use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
 use threadpool::ThreadPool;
 
@@ -12,6 +13,10 @@ fn main() {
 
     let start = Instant::now(); // Start timer
 
+    // create a channel for adding ports in a vector on the main thread
+    // connector threads will add ports to the channel if they are open
+    let (sender, receiver) = channel::<String>();
+
     // create a threadpool to limit the
     // upper bound of concurrent threads
     let pool_size = 100;
@@ -22,11 +27,13 @@ fn main() {
             // make "host" accessible from within the thread,
             // without worrying about its external lifetime
             let host = host.clone();
+            let sender = sender.clone();
             move || {
                 if port_is_open(host.as_str(), p.as_str()) {
-                    println!("{}:{} is open", host, p)
-                } else {
-                    println!("{}:{} is closed", host, p)
+                    println!("{}:{} is open", host, p);
+
+                    // send the port on the channel
+                    sender.send(p).unwrap();
                 }
             }
         });
@@ -35,6 +42,15 @@ fn main() {
     pool.join();
 
     let duration = start.elapsed(); // End timer
+
+    // close the channel...
+    drop(sender);
+
+    // ...and print all received ports
+    for p in receiver {
+        println!("port: {}", p);
+    }
+
     println!("scan finished in {:?}", duration)
 }
 
