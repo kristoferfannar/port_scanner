@@ -7,10 +7,31 @@ fn main() {
     let host = input("host: ");
     let port = input("port: ");
 
-    if port_is_open(host.as_str(), port.as_str()) {
-        println!("{}:{} is open", host, port)
+    let mut port_list = Vec::new();
+
+    if port.contains('-') {
+        let ports = port.as_str().splitn(2, '-').collect::<Vec<&str>>();
+        if ports.last().unwrap().contains('-') {
+            eprintln!("invalid port range. Max one hyphen allowed");
+            panic!("exiting due to invalid port range");
+        }
+
+        let start = ports[0].parse::<i32>().unwrap();
+        let end = ports[1].parse::<i32>().unwrap();
+
+        for p in start..end {
+            let p_str = p.to_string();
+            port_list.push(p_str);
+        }
+        port_list.push(end.to_string());
     } else {
-        println!("{}:{} is closed", host, port)
+        port_list.push(port);
+    }
+
+    for port in port_list {
+        if port_is_open(host.as_str(), port.as_str()) {
+            println!("{}:{} is open", host, port)
+        }
     }
 }
 
@@ -33,12 +54,12 @@ fn port_is_open(host: &str, port: &str) -> bool {
     address.push(':');
     address.push_str(&port.trim());
 
-    println!("scanning {}...", address);
+    // println!("scanning {}...", address);
 
     let mut socket_addresses = format!("{}:{}", host, port).to_socket_addrs().unwrap();
     let socket_address = socket_addresses.next().unwrap();
 
-    println!("{}", socket_address.to_string());
+    // println!("{}", socket_address.to_string());
 
     let result = TcpStream::connect_timeout(&socket_address, Duration::from_secs(1));
 
