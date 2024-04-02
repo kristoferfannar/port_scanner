@@ -1,8 +1,8 @@
 use std::io::{self, ErrorKind, Write};
 use std::net::TcpStream;
 use std::net::ToSocketAddrs;
-use std::thread;
 use std::time::{Duration, Instant};
+use threadpool::ThreadPool;
 
 fn main() {
     let host = input("host: ");
@@ -10,31 +10,31 @@ fn main() {
 
     let port_list = get_ports(port.as_str());
 
-    // will act as our waitgroup
-    let mut handles = vec![];
-
     let start = Instant::now(); // Start timer
 
+    // create a threadpool to limit the
+    // upper bound of concurrent threads
+    let pool_size = 100;
+    let pool = ThreadPool::new(pool_size);
+
     for p in port_list {
-        let handle = thread::spawn({
+        pool.execute({
             // make "host" accessible from within the thread,
             // without worrying about its external lifetime
             let host = host.clone();
             move || {
                 if port_is_open(host.as_str(), p.as_str()) {
                     println!("{}:{} is open", host, p)
+                } else {
+                    println!("{}:{} is closed", host, p)
                 }
             }
         });
-        handles.push(handle);
     }
 
-    for handle in handles {
-        handle.join().unwrap();
-    }
+    pool.join();
 
     let duration = start.elapsed(); // End timer
-
     println!("scan finished in {:?}", duration)
 }
 
